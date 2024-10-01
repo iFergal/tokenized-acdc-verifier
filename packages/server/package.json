@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "npx nodemon",
+    "build": "tsc",
+    "start": "node build/index.js"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "nodemon": "^3.1.7"
+  },
+  "dependencies": {
+    "express": "^5.0.0-beta.3",
+    "signify-ts": "github:cardano-foundation/signify-ts#3cb2dc05c8aff15e28c4518bf7f3623bd736a8e1"
+  }
+}
