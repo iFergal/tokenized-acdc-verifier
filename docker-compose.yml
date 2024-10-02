@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  server:
+    container_name: server 
+    build:
+      context: ./packages/server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ISSUER_OOBI=${ISSUER_OOBI}
+      - ISSUER_PRE=${ISSUER_PRE}
+      - ISSUER_REGK=${ISSUER_REGK}
+      - KERIA_ENDPOINT=${KERIA_ENDPOINT:-http://keria:3901}
+      - KERIA_BOOT_ENDPOINT=${KERIA_BOOT_ENDPOINT:-http://keria:3903}
+    ports:
+      - 3000:3000
+    volumes:
+      - server-data:/app/data
+
+volumes:
+  server-data:

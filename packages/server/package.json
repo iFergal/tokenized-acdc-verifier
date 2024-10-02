@@ -3,15 +3,18 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "npx nodemon",
-    "build": "tsc",
+    "build": "rimraf ./build && tsc && copyfiles -u 1 src/schemas/* build/schemas",
     "start": "node build/index.js"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.0",
-    "nodemon": "^3.1.7"
   },
   "dependencies": {
     "express": "^5.0.0-beta.3",
     "signify-ts": "github:cardano-foundation/signify-ts#3cb2dc05c8aff15e28c4518bf7f3623bd736a8e1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "copyfiles": "^2.4.1",
+    "dotenv": "^16.4.5",
+    "nodemon": "^3.1.7",
+    "rimraf": "^6.0.1"
   }
 }

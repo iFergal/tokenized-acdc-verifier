@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Saider, Serder, SignifyClient } from "signify-ts";
 import { waitAndGetDoneOp } from "../utils";
-import { issr, ri } from "..";
+import { config } from "../config";
 
 export async function getCredential(req: Request, res: Response) {
   const said = req.params.said;
@@ -55,8 +55,8 @@ export async function verifyCredential(req: Request, res: Response) {
   };
   
   // This could be better done in the background with watchers
-  await waitAndGetDoneOp(client, await client.keyStates().query(issr));
-  await waitAndGetDoneOp(client, await client.keyStates().telquery(issr, ri, acdcked.d));
+  await waitAndGetDoneOp(client, await client.keyStates().query(config.issuerPre));
+  await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId, acdcked.d));
 
   const completedOp = await waitAndGetDoneOp(client, await client.credentials().verify(new Serder(acdcked), new Serder(issked)));
   res.status(200).send(completedOp?.metadata?.ced);

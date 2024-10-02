@@ -1,33 +1,48 @@
 import express, { Request, Response, NextFunction } from "express";
 import { SignifyClient, Tier, randomPasscode, ready } from "signify-ts";
-import { join } from "path";
+import { join, dirname } from "path";
+import { existsSync, mkdirSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import { waitAndGetDoneOp } from "./utils";
 import { getCredential, verifyCredential } from "./controllers/credentials";
 import { query } from "./controllers/queries";
+import { config } from "./config";
 
-// @TODO - foconnor: Get from env
-const oobi = "http://127.0.0.1:3902/oobi/EKorlZQDNi2Irgr5oI4E_aN3xj6cW_pdE-Sg3Cy1Pz7O/agent/EBZVkHEYxD-HcUu1Ff1o5C7m70YWPKWt8_MHYybfvXHz";
-const schemaSaid = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
-export const issr = "EKorlZQDNi2Irgr5oI4E_aN3xj6cW_pdE-Sg3Cy1Pz7O";
-export const ri = "EILOwPzcTrVJfKMxMLSDVmCc8Y9-zDv9mby-5C-hoaZX";
+async function getBran(path: string): Promise<string> {
+  const dirPath = dirname(path);
+  if (!existsSync(dirPath)) {
+    mkdirSync(dirPath, { recursive: true })
+  }
+  if (!existsSync(path)) {
+    await writeFile(path, "");
+  }
+
+  const contents = await readFile(path, "utf8");
+  if (!contents) {
+    const bran = randomPasscode();
+    await writeFile(path, bran);
+    return bran;
+  }
+  return contents;
+}
 
 async function getClient(): Promise<SignifyClient> {
   await ready();
-  const client = new SignifyClient("http://127.0.0.1:3901", randomPasscode(), Tier.low, "http://127.0.0.1:3903");  // @TODO - foconnor: Persist passcode
+  const client = new SignifyClient(config.keriaEndpoint, await getBran("./data/secret"), Tier.low, config.keriaBootEndpoint);
   await client.boot();
   await client.connect();
   
   // If already resolved, this is very fast
-  await waitAndGetDoneOp(client, await client.oobis().resolve(oobi));
-  await waitAndGetDoneOp(client, await client.oobis().resolve(`http://localhost:3000/oobi/${schemaSaid}`));
+  await waitAndGetDoneOp(client, await client.oobis().resolve(config.issuerOobi));
+  await waitAndGetDoneOp(client, await client.oobis().resolve(`http://localhost:3000/oobi/${config.schemaSaid}`));
 
   try {
-    await client.registries().get(ri);
+    await client.registries().get(config.registryId);
   } catch (error: any) {
     const status = error?.message.split(" - ")[1];
     if (/404/gi.test(status)) {
-      console.info(`Initial startup, resolving and querying registry (${ri}) for pre ${issr}`);
-      await waitAndGetDoneOp(client, await client.keyStates().telquery(issr, ri));
+      console.info(`Initial startup, resolving and querying registry (${config.registryId}) for pre ${config.issuerPre}`);
+      await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId));
     }
   }
   
