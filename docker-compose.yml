@@ -3,8 +3,8 @@ services:
   server:
     container_name: server 
     build:
-      context: ./packages/server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./packages/server/Dockerfile
     restart: unless-stopped
     environment:
       - ISSUER_OOBI=${ISSUER_OOBI}
@@ -17,5 +17,16 @@ services:
     volumes:
       - server-data:/app/data
 
+  ui:
+    container_name: ui
+    build:
+      context: .
+      dockerfile: ./packages/ui/Dockerfile
+    restart: unless-stopped
+    environment:
+      - VITE_BACKEND_BASE_URL=${VITE_BACKEND_BASE_URL:-http://localhost:3000}
+    ports:
+      - 5173:80
+    
 volumes:
   server-data:
