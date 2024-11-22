@@ -7,10 +7,13 @@
     "start": "node build/index.js"
   },
   "dependencies": {
+    "body-parser": "^2.0.1",
+    "cors": "^2.8.5",
     "express": "^5.0.0-beta.3",
     "signify-ts": "github:cardano-foundation/signify-ts#3cb2dc05c8aff15e28c4518bf7f3623bd736a8e1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "copyfiles": "^2.4.1",
     "dotenv": "^16.4.5",

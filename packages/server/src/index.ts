@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
 import { SignifyClient, Tier, randomPasscode, ready } from "signify-ts";
 import { join, dirname } from "path";
 import { existsSync, mkdirSync } from "fs";
@@ -53,6 +55,8 @@ async function startServer(): Promise<void> {
   const app = express();
   const router = express.Router();
   
+  app.use(cors());
+  app.use(bodyParser.json());
   app.use(router);
   app.use("/oobi", express.static(join(__dirname, "schemas"), { setHeaders: (res, path) => {
     res.setHeader("Content-Type", "application/schema+json");

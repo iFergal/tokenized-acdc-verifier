@@ -14,5 +14,5 @@ export const config = {
   registryId: getRequired("ISSUER_REGK"),
   keriaEndpoint: getRequired("KERIA_ENDPOINT"),
   keriaBootEndpoint: getRequired("KERIA_BOOT_ENDPOINT"),
-  schemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+  schemaSaid: "EA3NRCtGF0czMPeiG5-CWbgCnmcpBDpPo2mYlxoGkk0j"
 }
