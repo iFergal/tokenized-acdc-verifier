@@ -1,6 +1,6 @@
 /// <reference types="vite/types/importMeta.d.ts" />
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ConnectWalletButton, useCardano } from "@cardano-foundation/cardano-connect-with-wallet";
 import { NetworkType } from "@cardano-foundation/cardano-connect-with-wallet-core";
 import "./App.css";
@@ -25,8 +25,7 @@ async function verifyACDC(vci: string, iss: string) {
 
   // @TODO - foconnor: If exists, re-query if not revoked. Revocation not in scope for PoC.
   if (credential.ok) {
-    console.info(`Credential: ${JSON.stringify(credential, null, 2)}`);
-    return;
+    return await credential.json();
   }
 
   const response = await fetch(`${BACKEND_BASE_URL}/credentials/verify`, {
@@ -36,11 +35,17 @@ async function verifyACDC(vci: string, iss: string) {
       "Content-Type": "application/json",
     },
   });
-  console.info(`Credential: ${JSON.stringify(await response.json(), null, 2)}`);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return await response.json();
 }
 
 export function App() {
   const { isConnected, stakeAddress } = useCardano({ limitNetwork: NetworkType.TESTNET });
+  const [credentials, setCredentials] = useState<any[]>([]);  // @TODO - foconnor: type by schema
 
   useEffect(() => {
     async function fetchACDCs() {
@@ -55,7 +60,7 @@ export function App() {
               const metadatum = (await fetchBlockfrost(`txs/${historyItem.tx_hash}/metadata`)).find(metadatum => metadatum.label === "721").json_metadata;
               const acdcMetadata: any = Object.values(metadatum[POLICY_ID])[0];
               if (acdcMetadata.claimACDCSaid && acdcMetadata.claimIssSaid) {
-                await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid);
+                setCredentials([...credentials, { data: await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid), txid: historyItem.tx_hash }]);
               }
             }
           } 
@@ -67,12 +72,51 @@ export function App() {
       fetchACDCs();
     }
   }, [isConnected]);
-
+  
   return (
     <>
       <ConnectWalletButton
         limitNetwork={NetworkType.TESTNET}
       />
+      {credentials.map(credential => (
+        <>
+          <h2>Token linked to verified ACDC / txid: {credential.txid}</h2>
+          <div className="info-section">
+            <ul>
+              <li><strong>Issuer:</strong> {credential.data.i}</li>
+              <li><strong>Issuee:</strong> {credential.data.a.i}</li>
+              <li><strong>Date of issuance:</strong> {credential.data.a.dt}</li>
+            </ul>
+          </div>
+
+          <div className="info-section">
+            <h2>Claim</h2>
+            <pre>{JSON.stringify(credential.data.a.claim, null, 2)}</pre>
+          </div>
+          
+          <div className="info-section">
+            <h2>Checkpoints</h2>
+            <pre>{JSON.stringify(credential.data.a.checkpoints, null, 2)}</pre>
+          </div>
+          
+          <div className="info-section">
+            <h2>Contract</h2>
+            <pre>{JSON.stringify(credential.data.a.contract, null, 2)}</pre>
+          </div>
+          
+          <div className="info-section">
+            <h2>Project</h2>
+            <pre>{JSON.stringify(credential.data.a.project, null, 2)}</pre>
+          </div>
+          
+          <div className="info-section">
+            <h2>Program</h2>
+            <pre>{JSON.stringify(credential.data.a.program, null, 2)}</pre>
+          </div>
+      </>
+      ))}
+      
+      {isConnected ? (credentials.length === 0 ? <p>No verified tokens found</p> : null) : <p>Connect your wallet!</p>}
     </>
   )
 }

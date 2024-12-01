@@ -2,5 +2,24 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.info-section {
+  background-color: #f2f2f2;
+  padding: 15px 15px 15px;
+  border-radius: 10px;
+  margin: 20px;
+}
+
+.info-section > h2 {
+  margin: 0;
+}
+
+ul {
+  padding-left: 5px;
+}
+
+li {
+  list-style-type: none;
 }
