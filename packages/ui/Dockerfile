@@ -4,7 +4,7 @@ FROM node:21.5.0 AS build
 # @TODO - foconnor: This can be optimised.
 WORKDIR /app
 COPY . .
-RUN npm install -w ui
+RUN npm install
 RUN npm run build -w ui
 
 # Bundle static assets with nginx
