@@ -21,7 +21,11 @@ async function fetchBlockfrost(path: string) {
 }
 
 async function verifyACDC(vci: string, iss: string) {
-  const credential = await fetch(`${BACKEND_BASE_URL}/credentials/${vci}`);
+  const credential = await fetch(`${BACKEND_BASE_URL}/credentials/${vci}`).catch(error => {
+    console.error(error);  // @TODO - check for actual 404 or re-throw
+  });
+
+  if (!credential) return;
 
   // @TODO - foconnor: If exists, re-query if not revoked. Revocation not in scope for PoC.
   if (credential.ok) {
@@ -36,9 +40,7 @@ async function verifyACDC(vci: string, iss: string) {
     },
   });
 
-  if (!response.ok) {
-    return null;
-  }
+  if (!response.ok) return;
 
   return await response.json();
 }
@@ -60,7 +62,10 @@ export function App() {
               const metadatum = (await fetchBlockfrost(`txs/${historyItem.tx_hash}/metadata`)).find(metadatum => metadatum.label === "721").json_metadata;
               const acdcMetadata: any = Object.values(metadatum[POLICY_ID])[0];
               if (acdcMetadata.claimACDCSaid && acdcMetadata.claimIssSaid) {
-                setCredentials([...credentials, { data: await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid), txid: historyItem.tx_hash }]);
+                const result = await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid);
+                if (result) {
+                  setCredentials([...credentials, { data: result.sad, txid: historyItem.tx_hash }]);
+                }
               }
             }
           } 

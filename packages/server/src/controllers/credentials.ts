@@ -27,8 +27,11 @@ export async function verifyCredential(req: Request, res: Response) {
   const issHex = Buffer.from(new Saider({ qb64: iss }).raw).toString("hex");
 
   // @TODO - foconnor: Improve typing post PoC.
-  const acdcked = await (await fetch(`http://15.156.43.150:9090/api/public/attachment/${vciHex}`)).json() as Dict<any>;
-  const issked = await (await fetch(`http://15.156.43.150:9090/api/public/attachment/${issHex}`)).json() as Dict<any>;
+  const acdcked = await (await fetch(`http://t10n.guild1.com:9090/api/public/attachment/${vciHex}`)).json() as Dict<any>;
+  const issked = await (await fetch(`http://t10n.guild1.com:9090/api/public/attachment/${issHex}`)).json() as Dict<any>;
+
+  acdcked.d = vci;
+  issked.d = iss;
   
   // This could be better done in the background with watchers
   await waitAndGetDoneOp(client, await client.keyStates().query(config.issuerPre));
