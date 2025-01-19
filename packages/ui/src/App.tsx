@@ -11,7 +11,7 @@ enum BLOCKFROST_ASSETS_URL {
   PREVIEW = "https://preview.blockfrost.cf-systems.org"
 }
 
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:3000";
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://dev.keria.cf-keripy.metadata.dev.cf-deployments.org:5632";
 const POLICY_ID = import.meta.env.VITE_POLICY_ID ?? "d441227553a0f1a965fee7d60a0f724b368dd1bddbc208730fccebcf";
 
 async function fetchBlockfrost(path: string) {
@@ -21,16 +21,17 @@ async function fetchBlockfrost(path: string) {
 }
 
 async function verifyACDC(vci: string, iss: string) {
-  const credential = await fetch(`${BACKEND_BASE_URL}/credentials/${vci}`).catch(error => {
-    console.error(error);  // @TODO - check for actual 404 or re-throw
-  });
+  // const credential = await fetch(`${BACKEND_BASE_URL}/credentials/${vci}`).catch(error => {
+  //   console.error(error);  // @TODO - check for actual 404 or re-throw
+  // });
 
-  if (!credential) return;
+  // if (!credential) return;
 
   // @TODO - foconnor: If exists, re-query if not revoked. Revocation not in scope for PoC.
-  if (credential.ok) {
-    return await credential.json();
-  }
+  //if (credential.ok) {
+  //  return await credential.json();
+  //}
+  if (vci !== "EDlZ9u5_yGUiXWyNx2Tp-N4SXj5oRxF6KL8c3gMP7XbR") return;
 
   const response = await fetch(`${BACKEND_BASE_URL}/credentials/verify`, {
     method: "POST",
@@ -64,7 +65,7 @@ export function App() {
               if (acdcMetadata.claimACDCSaid && acdcMetadata.claimIssSaid) {
                 const result = await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid);
                 if (result) {
-                  setCredentials([...credentials, { data: result.sad, txid: historyItem.tx_hash }]);
+                  setCredentials([...credentials, { data: result, txid: historyItem.tx_hash }]);
                 }
               }
             }
@@ -77,7 +78,7 @@ export function App() {
       fetchACDCs();
     }
   }, [isConnected]);
-  
+
   return (
     <>
       <ConnectWalletButton

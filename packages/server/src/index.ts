@@ -36,7 +36,8 @@ async function getClient(): Promise<SignifyClient> {
   
   // If already resolved, this is very fast
   await waitAndGetDoneOp(client, await client.oobis().resolve(config.issuerOobi));
-  await waitAndGetDoneOp(client, await client.oobis().resolve(`http://localhost:3000/oobi/${config.schemaSaid}`));
+  // await waitAndGetDoneOp(client, await client.oobis().resolve(`http://server:3000/oobi/${config.schemaSaid}`));
+  await waitAndGetDoneOp(client, await client.oobis().resolve(`http://t10n.guild1.com:3000/oobi/EA3NRCtGF0czMPeiG5-CWbgCnmcpBDpPo2mYlxoGkk0j`));
 
   try {
     await client.registries().get(config.registryId);

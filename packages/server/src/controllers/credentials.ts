@@ -29,14 +29,20 @@ export async function verifyCredential(req: Request, res: Response) {
   // @TODO - foconnor: Improve typing post PoC.
   const acdcked = await (await fetch(`http://t10n.guild1.com:9090/api/public/attachment/${vciHex}`)).json() as Dict<any>;
   const issked = await (await fetch(`http://t10n.guild1.com:9090/api/public/attachment/${issHex}`)).json() as Dict<any>;
-
-  acdcked.d = vci;
-  issked.d = iss;
   
+  acdcked.d = vci;
+  issked.d = iss; 
+
+  console.log(`\nACDC is ${JSON.stringify(acdcked, null, 2)}`);
+  console.log(`\niss is ${JSON.stringify(issked, null, 2)}`);
+
   // This could be better done in the background with watchers
+  console.log(`Querying issuer ${config.issuerPre}`);
   await waitAndGetDoneOp(client, await client.keyStates().query(config.issuerPre));
+  console.log(`Querying TEL (${config.issuerPre}, ${config.registryId}, ${acdcked.d})`);
   await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId, acdcked.d));
 
+  console.log(`Preparing to verify...`);
   const completedOp = await waitAndGetDoneOp(client, await client.credentials().verify(new Serder(Saider.saidify(acdcked)[1]), new Serder(Saider.saidify(issked)[1])));
   res.status(200).send(completedOp?.metadata?.ced);
 }

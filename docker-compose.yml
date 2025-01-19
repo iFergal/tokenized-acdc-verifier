@@ -7,13 +7,13 @@ services:
       dockerfile: ./packages/server/Dockerfile
     restart: unless-stopped
     environment:
-      - ISSUER_OOBI=${ISSUER_OOBI}
-      - ISSUER_PRE=${ISSUER_PRE}
-      - ISSUER_REGK=${ISSUER_REGK}
-      - KERIA_ENDPOINT=${KERIA_ENDPOINT:-http://keria:3901}
-      - KERIA_BOOT_ENDPOINT=${KERIA_BOOT_ENDPOINT:-http://keria:3903}
+      - ISSUER_OOBI=${ISSUER_OOBI:-http://t10n.guild1.com:3902/oobi/EN-JeVj67PgehbEBD8W7W5aRJ8FZ9D2_WTaIlb5UprRL/agent/EKn5dfFLpsnzOA-QRBBMJM6E0VuHjmRo5DDJYYx0lp9M}
+      - ISSUER_PRE=${ISSUER_PRE:-EN-JeVj67PgehbEBD8W7W5aRJ8FZ9D2_WTaIlb5UprRL}
+      - ISSUER_REGK=${ISSUER_REGK:-EEPQVQ6uMfF_aTHVXn8oo6DceQKkhNvIX9UulTg1Cx1G}
+      - KERIA_ENDPOINT=${KERIA_ENDPOINT:-http://keria-g1:3901}
+      - KERIA_BOOT_ENDPOINT=${KERIA_BOOT_ENDPOINT:-http://keria-g1:3903}
     ports:
-      - 3000:3000
+      - 5632:3000
     volumes:
       - server-data:/app/data
 
@@ -24,9 +24,14 @@ services:
       dockerfile: ./packages/ui/Dockerfile
     restart: unless-stopped
     environment:
-      - VITE_BACKEND_BASE_URL=${VITE_BACKEND_BASE_URL:-http://localhost:3000}
+      - VITE_BACKEND_BASE_URL=${VITE_BACKEND_BASE_URL:-http://server:3000}
     ports:
-      - 5173:80
+      - 5633:80
     
 volumes:
   server-data:
+
+# networks:
+#   default:
+#     name: traefik
+#     external: true
