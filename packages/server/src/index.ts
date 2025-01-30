@@ -44,7 +44,7 @@ async function getClient(): Promise<SignifyClient> {
     const status = error?.message.split(" - ")[1];
     if (/404/gi.test(status)) {
       console.info(`Initial startup, resolving and querying registry (${config.registryId}) for pre ${config.issuerPre}`);
-      // await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId));
+      await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId));
     }
   }
   
