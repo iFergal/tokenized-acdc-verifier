@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ConnectWalletButton, useCardano } from "@cardano-foundation/cardano-connect-with-wallet";
 import { NetworkType } from "@cardano-foundation/cardano-connect-with-wallet-core";
 import "./App.css";
+import CircularProgress from "@mui/material/CircularProgress";
 
 enum BLOCKFROST_ASSETS_URL {
   MAINNET = "https://mainnet.blockfrost.cf-systems.org",
@@ -12,7 +13,7 @@ enum BLOCKFROST_ASSETS_URL {
 }
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:3000";
-const POLICY_ID = import.meta.env.VITE_POLICY_ID ?? "d441227553a0f1a965fee7d60a0f724b368dd1bddbc208730fccebcf";
+const POLICY_ID = import.meta.env.VITE_POLICY_ID ?? "0a67b67f0157370f7c32d3fbbbe9e3062cb3bba200ba1eb39e0d09a1";
 
 async function fetchBlockfrost(path: string) {
   // @TODO - foconnor: Detect from wallet
@@ -45,83 +46,126 @@ async function verifyACDC(vci: string, iss: string) {
   return await response.json();
 }
 
+interface Credential {
+  unit: string
+  sad: any
+  txId: string
+  amount: number
+}
+
+interface Asset {unit: string, quantity: number}
+
 export function App() {
   const { isConnected, stakeAddress } = useCardano({ limitNetwork: NetworkType.TESTNET });
-  const [credentials, setCredentials] = useState<any[]>([]);  // @TODO - foconnor: type by schema
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [loadInfo, setLoadInfo] = useState<string>()
 
   useEffect(() => {
     async function fetchACDCs() {
-      // @TODO - foconnor: This entire block could do with some typing and less nesting. OK for now.
-      const assets = await fetchBlockfrost(`accounts/${stakeAddress}/addresses/assets`);
+      setLoadInfo("Initializing, Querying asset information from wallet")
+      const assets: Asset[] = await fetchBlockfrost(`accounts/${stakeAddress}/addresses/assets`);
+
       for (const asset of assets) {
         // @ts-ignore
         if (asset.unit.startsWith(POLICY_ID)) {
+          setLoadInfo("Fetching the transaction history for the asset")
           const history = await fetchBlockfrost(`assets/${asset.unit}/history`);
+
           for (const historyItem of history) {
             if (historyItem.action === "minted") {
+              setLoadInfo("Querying the meta data for the minting tx")
               const metadatum = (await fetchBlockfrost(`txs/${historyItem.tx_hash}/metadata`)).find(metadatum => metadatum.label === "721").json_metadata;
               const acdcMetadata: any = Object.values(metadatum[POLICY_ID])[0];
               if (acdcMetadata.claimACDCSaid && acdcMetadata.claimIssSaid) {
+                setLoadInfo("Verifying the ACDC with KERI")
                 const result = await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid);
                 if (result) {
-                  setCredentials([...credentials, { data: result.sad, txid: historyItem.tx_hash }]);
+                  console.log(result)
+                  setCredentials([...credentials, {unit: asset.unit,
+                    sad: result.sad,
+                    txId: historyItem.tx_hash,
+                    amount: asset.quantity}])
                 }
               }
             }
           } 
         }
       }
+
+      setLoadInfo("")
     }
 
-    if (isConnected) {
-      fetchACDCs();
+    if (isConnected) {fetchACDCs();
+    } else {setCredentials([])
     }
   }, [isConnected]);
-  
+
+  // @ts-ignore
   return (
     <>
       <ConnectWalletButton
-        limitNetwork={NetworkType.TESTNET}
+          label="Connect a Cardano Wallet"
+          dAppName="Validation App"
+          limitNetwork={NetworkType.TESTNET}
       />
+
       {credentials.map(credential => (
         <>
-          <h2>Token linked to verified ACDC / txid: {credential.txid}</h2>
+
           <div className="info-section">
+            <h2>Asset Information</h2>
             <ul>
-              <li><strong>Issuer:</strong> {credential.data.i}</li>
-              <li><strong>Issuee:</strong> {credential.data.a.i}</li>
-              <li><strong>Date of issuance:</strong> {credential.data.a.dt}</li>
+              <li><strong>Asset:</strong> {credential.unit}</li>
+              <li><strong>Quantity:</strong> {credential.amount}</li>
+              <li><strong>TxID:</strong> <a href={`https://preprod.cardanoscan.io/transaction/${credential.txId}`} target="_blank">{credential.txId}</a></li>
+            </ul>
+          </div>
+
+          <div className="info-section">
+            <h2>ACDC Information</h2>
+            <ul>
+              <li><strong>Issuer:</strong> {credential.sad.i}</li>
+              <li><strong>Issuee:</strong> {credential.sad.a.i}</li>
+              <li><strong>Date of issuance:</strong> {credential.sad.a.dt}</li>
             </ul>
           </div>
 
           <div className="info-section">
             <h2>Claim</h2>
-            <pre>{JSON.stringify(credential.data.a.claim, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.sad.a.claim, null, 2)}</pre>
           </div>
           
           <div className="info-section">
             <h2>Checkpoints</h2>
-            <pre>{JSON.stringify(credential.data.a.checkpoints, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.sad.a.checkpoints, null, 2)}</pre>
           </div>
           
           <div className="info-section">
             <h2>Contract</h2>
-            <pre>{JSON.stringify(credential.data.a.contract, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.sad.a.contract, null, 2)}</pre>
           </div>
           
           <div className="info-section">
             <h2>Project</h2>
-            <pre>{JSON.stringify(credential.data.a.project, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.sad.a.project, null, 2)}</pre>
           </div>
           
           <div className="info-section">
             <h2>Program</h2>
-            <pre>{JSON.stringify(credential.data.a.program, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.sad.a.program, null, 2)}</pre>
           </div>
-      </>
+        </>
       ))}
-      
-      {isConnected ? (credentials.length === 0 ? <p>No verified tokens found</p> : null) : <p>Connect your wallet!</p>}
+
+      {isConnected && credentials.length === 0 ?
+          <div className="center"><CircularProgress/><h2 className="loading-title">{loadInfo}</h2></div>:
+          <>
+            <div className="info-section">
+              <h2>Token Asset Verification POC</h2>
+              <pre>Put some information here regarding the verification process</pre>
+            </div>
+          </>
+      }
     </>
   )
 }

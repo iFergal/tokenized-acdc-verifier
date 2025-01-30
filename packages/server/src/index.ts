@@ -36,7 +36,7 @@ async function getClient(): Promise<SignifyClient> {
   
   // If already resolved, this is very fast
   await waitAndGetDoneOp(client, await client.oobis().resolve(config.issuerOobi));
-  await waitAndGetDoneOp(client, await client.oobis().resolve(`http://localhost:3000/oobi/${config.schemaSaid}`));
+  await waitAndGetDoneOp(client, await client.oobis().resolve(`http://t10n.guild1.com:3000/oobi/${config.schemaSaid}`));
 
   try {
     await client.registries().get(config.registryId);
@@ -44,7 +44,7 @@ async function getClient(): Promise<SignifyClient> {
     const status = error?.message.split(" - ")[1];
     if (/404/gi.test(status)) {
       console.info(`Initial startup, resolving and querying registry (${config.registryId}) for pre ${config.issuerPre}`);
-      await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId));
+      // await waitAndGetDoneOp(client, await client.keyStates().telquery(config.issuerPre, config.registryId));
     }
   }
   
