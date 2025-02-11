@@ -1,127 +1,160 @@
 /// <reference types="vite/types/importMeta.d.ts" />
 
-import { useEffect, useState } from "react";
-import { ConnectWalletButton, useCardano } from "@cardano-foundation/cardano-connect-with-wallet";
-import { NetworkType } from "@cardano-foundation/cardano-connect-with-wallet-core";
+import {useEffect, useState} from "react";
+import {ConnectWalletButton, useCardano} from "@cardano-foundation/cardano-connect-with-wallet";
+import {NetworkType} from "@cardano-foundation/cardano-connect-with-wallet-core";
 import "./App.css";
+import CircularProgress from "@mui/material/CircularProgress";
+import {Credential} from "./verification";
 
-enum BLOCKFROST_ASSETS_URL {
-  MAINNET = "https://mainnet.blockfrost.cf-systems.org",
-  PREPROD = "https://preprod.blockfrost.cf-systems.org",
-  PREVIEW = "https://preview.blockfrost.cf-systems.org"
-}
-
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:3000";
-const POLICY_ID = import.meta.env.VITE_POLICY_ID ?? "d441227553a0f1a965fee7d60a0f724b368dd1bddbc208730fccebcf";
-
-async function fetchBlockfrost(path: string) {
-  // @TODO - foconnor: Detect from wallet
-  const response = await fetch(`${BLOCKFROST_ASSETS_URL.PREPROD}/${path}`);
-  return await response.json();
-}
-
-async function verifyACDC(vci: string, iss: string) {
-  const credential = await fetch(`${BACKEND_BASE_URL}/credentials/${vci}`).catch(error => {
-    console.error(error);  // @TODO - check for actual 404 or re-throw
-  });
-
-  if (!credential) return;
-
-  // @TODO - foconnor: If exists, re-query if not revoked. Revocation not in scope for PoC.
-  if (credential.ok) {
-    return await credential.json();
-  }
-
-  const response = await fetch(`${BACKEND_BASE_URL}/credentials/verify`, {
-    method: "POST",
-    body: JSON.stringify({ vci, iss }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) return;
-
-  return await response.json();
-}
+import {
+  Asset,
+  History,
+  fetchAssetsFromAddr,
+  fetchHistory,
+  BlockFrostError,
+  fetchIdInfo, IDInfo
+} from "./bfUtils";
+import {BACKEND_BASE_URL, POLICY_ID} from "./settings";
+import {verifyACDC} from "./verification";
 
 export function App() {
   const { isConnected, stakeAddress } = useCardano({ limitNetwork: NetworkType.TESTNET });
-  const [credentials, setCredentials] = useState<any[]>([]);  // @TODO - foconnor: type by schema
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [loadInfo, setLoadInfo] = useState<string|undefined>()
+  const [errorMessage, setErrorMessage] = useState<string|undefined>()
 
   useEffect(() => {
     async function fetchACDCs() {
-      // @TODO - foconnor: This entire block could do with some typing and less nesting. OK for now.
-      const assets = await fetchBlockfrost(`accounts/${stakeAddress}/addresses/assets`);
-      for (const asset of assets) {
-        // @ts-ignore
-        if (asset.unit.startsWith(POLICY_ID)) {
-          const history = await fetchBlockfrost(`assets/${asset.unit}/history`);
-          for (const historyItem of history) {
-            if (historyItem.action === "minted") {
-              const metadatum = (await fetchBlockfrost(`txs/${historyItem.tx_hash}/metadata`)).find(metadatum => metadatum.label === "721").json_metadata;
-              const acdcMetadata: any = Object.values(metadatum[POLICY_ID])[0];
-              if (acdcMetadata.claimACDCSaid && acdcMetadata.claimIssSaid) {
-                const result = await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid);
-                if (result) {
-                  setCredentials([...credentials, { data: result.sad, txid: historyItem.tx_hash }]);
+      try {
+        setLoadInfo("Initializing, Querying asset information from wallet")
+        const assets: Asset[] = stakeAddress ? await fetchAssetsFromAddr(stakeAddress) : []
+
+        for (const asset of assets) {
+          // @ts-ignore
+          if (asset.unit.startsWith(POLICY_ID)) {
+            setLoadInfo("Fetching the transaction history for the asset")
+            const history: History[] = await fetchHistory(asset.unit)
+
+            for (const historyItem of history) {
+              if (historyItem.action === "minted") {
+                setLoadInfo("Querying the meta data for the minting tx")
+
+                let idInfo: IDInfo = await fetchIdInfo(historyItem.tx_hash)
+
+                if (idInfo.claimACDCSaid && idInfo.claimIssSaid) {
+                  setLoadInfo("Verifying the ACDC with KERI")
+
+                  const result: JsonValue = await verifyACDC(idInfo.claimACDCSaid, idInfo.claimIssSaid);
+
+                  if (result) {
+                    console.info("Credential")
+                    let c = new Credential(
+                        asset.unit,
+                        result,
+                        historyItem.tx_hash,
+                        asset.quantity
+                    )
+                    console.info("Credential")
+                    setCredentials([...credentials, c])
+                  }
                 }
               }
             }
-          } 
+          }
+        }
+
+        setLoadInfo('')
+        setErrorMessage('')
+      } catch (error: unknown) {
+        if (error instanceof BlockFrostError) {
+          setErrorMessage(`BlockFrost Error: ${error.message},${error.status},${error.statusText}`)
+          console.error('An error occured: ', error)
         }
       }
     }
 
-    if (isConnected) {
-      fetchACDCs();
-    }
+    if (isConnected) {fetchACDCs().then()} else {setCredentials([])}
   }, [isConnected]);
-  
+
+  // @ts-ignore
   return (
     <>
       <ConnectWalletButton
-        limitNetwork={NetworkType.TESTNET}
+          label="Connect a Cardano Wallet"
+          dAppName="Validation App"
+          limitNetwork={NetworkType.TESTNET}
       />
+
+      {errorMessage ? <h2>{errorMessage}</h2> : <></>}
+
       {credentials.map(credential => (
         <>
-          <h2>Token linked to verified ACDC / txid: {credential.txid}</h2>
           <div className="info-section">
+            <h2>Asset Information</h2>
             <ul>
-              <li><strong>Issuer:</strong> {credential.data.i}</li>
-              <li><strong>Issuee:</strong> {credential.data.a.i}</li>
-              <li><strong>Date of issuance:</strong> {credential.data.a.dt}</li>
+              <li><strong>Asset:</strong> {credential.unit}</li>
+              <li><strong>Quantity:</strong> {credential.amount}</li>
+              <li><strong>TxID:</strong> <a href={`https://preprod.cardanoscan.io/transaction/${credential.txId}`} target="_blank">{credential.txId}</a></li>
+            </ul>
+          </div>
+
+          <div className="info-section">
+            <h2>ACDC Information</h2>
+            <ul>
+              <li><strong>Issuer:</strong> {credential.issuer}</li>
+              <li><strong>Issuee:</strong> {credential.issuee}</li>
+              <li><strong>Date of issuance:</strong> {credential.dt}</li>
             </ul>
           </div>
 
           <div className="info-section">
             <h2>Claim</h2>
-            <pre>{JSON.stringify(credential.data.a.claim, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.claim, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Checkpoints</h2>
-            <pre>{JSON.stringify(credential.data.a.checkpoints, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.checkpoints, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Contract</h2>
-            <pre>{JSON.stringify(credential.data.a.contract, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.contract, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Project</h2>
-            <pre>{JSON.stringify(credential.data.a.project, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.project, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Program</h2>
-            <pre>{JSON.stringify(credential.data.a.program, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.program, null, 2)}</pre>
           </div>
-      </>
+        </>
       ))}
-      
-      {isConnected ? (credentials.length === 0 ? <p>No verified tokens found</p> : null) : <p>Connect your wallet!</p>}
+
+      {isConnected && credentials.length === 0 ?
+          <div className="center"><CircularProgress/><h2 className="loading-title">{loadInfo}</h2></div>:
+          isConnected ? <></> : <>
+          <div className="info-section">
+            <h2>Token Asset Verification POC</h2>
+            <div className="help-section">
+              This <b>POC</b> is a validation <b>DAPP</b> enabling holders of the Corda <b>V10N</b> Tokens to Cardano bridged
+              tokens to verify associated <b>V10N</b> export data that is stored as issued statements in <b>KERI</b>.<br/><br/>
+              Native Assets in your wallet are scanned to match up on the Policy ID and then the associated MetaData from the minting transaction is
+              retrieved to get the <b>KERI</b> <b>SAID</b> Identifier.<br/>
+            </div>
+            <ul>
+              <li><strong>Policy Id: </strong><a
+                  href={`https://preprod.cardanoscan.io/tokenPolicy/${POLICY_ID}`}>{POLICY_ID}</a></li>
+              <li><strong>Cardano Network: </strong>{NetworkType.TESTNET}</li>
+              <li><strong>Backend Server: </strong>{BACKEND_BASE_URL}</li>
+            </ul>
+          </div>
+        </>
+      }
     </>
   )
 }
