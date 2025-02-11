@@ -5,28 +5,30 @@ import {ConnectWalletButton, useCardano} from "@cardano-foundation/cardano-conne
 import {NetworkType} from "@cardano-foundation/cardano-connect-with-wallet-core";
 import "./App.css";
 import CircularProgress from "@mui/material/CircularProgress";
-import {Asset, History, fetchAssetsFromAddr, fetchHistory, fetchMetaData, BlockFrostError} from "./BFUtils";
-import {BACKEND_BASE_URL, POLICY_ID} from "./Settings";
-import {verifyACDC} from "./Verification";
+import {Credential} from "./verification";
+
+import {
+  Asset,
+  History,
+  fetchAssetsFromAddr,
+  fetchHistory,
+  BlockFrostError,
+  fetchIdInfo, IDInfo
+} from "./bfUtils";
+import {BACKEND_BASE_URL, POLICY_ID} from "./settings";
+import {verifyACDC} from "./verification";
 
 export function App() {
   const { isConnected, stakeAddress } = useCardano({ limitNetwork: NetworkType.TESTNET });
   const [credentials, setCredentials] = useState<Credential[]>([]);
-  const [loadInfo, setLoadInfo] = useState<string|null>()
-  const [errorMessage, setErrorMessage] = useState<string|null>()
-
-  interface Credential {
-    unit: string
-    sad: any
-    txId: string
-    amount: number
-  }
+  const [loadInfo, setLoadInfo] = useState<string|undefined>()
+  const [errorMessage, setErrorMessage] = useState<string|undefined>()
 
   useEffect(() => {
     async function fetchACDCs() {
       try {
         setLoadInfo("Initializing, Querying asset information from wallet")
-        const assets: Asset[] = await fetchAssetsFromAddr(stakeAddress)
+        const assets: Asset[] = stakeAddress ? await fetchAssetsFromAddr(stakeAddress) : []
 
         for (const asset of assets) {
           // @ts-ignore
@@ -38,21 +40,23 @@ export function App() {
               if (historyItem.action === "minted") {
                 setLoadInfo("Querying the meta data for the minting tx")
 
-                const metadatum: Map<string,any> = await fetchMetaData(historyItem.tx_hash)
-                const acdcMetadata: any = Object.values(metadatum[POLICY_ID])[0];
+                let idInfo: IDInfo = await fetchIdInfo(historyItem.tx_hash)
 
-                if (acdcMetadata.claimACDCSaid && acdcMetadata.claimIssSaid) {
+                if (idInfo.claimACDCSaid && idInfo.claimIssSaid) {
                   setLoadInfo("Verifying the ACDC with KERI")
 
-                  const result: any = await verifyACDC(acdcMetadata.claimACDCSaid, acdcMetadata.claimIssSaid);
+                  const result: JsonValue = await verifyACDC(idInfo.claimACDCSaid, idInfo.claimIssSaid);
 
                   if (result) {
-                    setCredentials([...credentials, {
-                      unit: asset.unit,
-                      sad: result.sad,
-                      txId: historyItem.tx_hash,
-                      amount: asset.quantity
-                    }])
+                    console.info("Credential")
+                    let c = new Credential(
+                        asset.unit,
+                        result,
+                        historyItem.tx_hash,
+                        asset.quantity
+                    )
+                    console.info("Credential")
+                    setCredentials([...credentials, c])
                   }
                 }
               }
@@ -60,9 +64,9 @@ export function App() {
           }
         }
 
-        setLoadInfo(null)
-        setErrorMessage(null)
-      } catch (error: any) {
+        setLoadInfo('')
+        setErrorMessage('')
+      } catch (error: unknown) {
         if (error instanceof BlockFrostError) {
           setErrorMessage(`BlockFrost Error: ${error.message},${error.status},${error.statusText}`)
           console.error('An error occured: ', error)
@@ -98,35 +102,35 @@ export function App() {
           <div className="info-section">
             <h2>ACDC Information</h2>
             <ul>
-              <li><strong>Issuer:</strong> {credential.sad.i}</li>
-              <li><strong>Issuee:</strong> {credential.sad.a.i}</li>
-              <li><strong>Date of issuance:</strong> {credential.sad.a.dt}</li>
+              <li><strong>Issuer:</strong> {credential.issuer}</li>
+              <li><strong>Issuee:</strong> {credential.issuee}</li>
+              <li><strong>Date of issuance:</strong> {credential.dt}</li>
             </ul>
           </div>
 
           <div className="info-section">
             <h2>Claim</h2>
-            <pre>{JSON.stringify(credential.sad.a.claim, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.claim, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Checkpoints</h2>
-            <pre>{JSON.stringify(credential.sad.a.checkpoints, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.checkpoints, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Contract</h2>
-            <pre>{JSON.stringify(credential.sad.a.contract, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.contract, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Project</h2>
-            <pre>{JSON.stringify(credential.sad.a.project, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.project, null, 2)}</pre>
           </div>
-          
+
           <div className="info-section">
             <h2>Program</h2>
-            <pre>{JSON.stringify(credential.sad.a.program, null, 2)}</pre>
+            <pre>{JSON.stringify(credential.program, null, 2)}</pre>
           </div>
         </>
       ))}

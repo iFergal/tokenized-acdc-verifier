@@ -1,4 +1,5 @@
 import {query} from "server/src/controllers/queries";
+import {POLICY_ID} from "./settings";
 
 export enum BLOCKFROST_ASSETS_URL {
     MAINNET = "https://mainnet.blockfrost.cf-systems.org",
@@ -23,7 +24,7 @@ export class BlockFrostError {
 export interface Asset {unit: string, quantity: number}
 export interface History {action: string, tx_hash: string}
 
-export async function fetchAssetsFromAddr(stakeAddress: string|null): Promise<Asset[]> {
+export async function fetchAssetsFromAddr(stakeAddress: string): Promise<Asset[]> {
     const response: Response = await fetch(`${BLOCKFROST_ASSETS_URL.PREPROD}/accounts/${stakeAddress}/addresses/assets`);
     if (response.ok) return await response.json()
     else throw new BlockFrostError(`Issues fetching assets from address ${stakeAddress}`, response.status, response.statusText)
@@ -35,7 +36,7 @@ export async function fetchHistory(unit: string): Promise<History[]> {
     else throw new BlockFrostError(`Issues fetching history from unit ${unit}`, response.status, response.statusText)
 }
 
-export async function fetchMetaData(txHash: string): Promise<Map<string,any>> {
+export async function fetchMetaData(txHash: string): Promise<Map<string,JsonValue>> {
     const response: Response = (await fetch(`${BLOCKFROST_ASSETS_URL.PREPROD}/txs/${txHash}/metadata`))
     console.log(response)
     if (response.ok) {
@@ -45,4 +46,15 @@ export async function fetchMetaData(txHash: string): Promise<Map<string,any>> {
         return ret
     }
     else throw new BlockFrostError(`Issues fetching meta data from history item`, response.status, response.statusText)
+}
+
+export type IDInfo = {
+    claimACDCSaid: string,
+    claimIssSaid: string
+}
+
+export async function fetchIdInfo(txHash: string): Promise<IDInfo> {
+    const metadatum: Map<string,JsonValue> = await fetchMetaData(txHash)
+    const ret: JsonValue = Object.values<JsonValue>(metadatum[POLICY_ID])[0];
+    return ret as IDInfo
 }
